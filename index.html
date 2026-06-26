@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JobTracker</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.383.0/umd/lucide.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { font-family: 'Inter', system-ui, sans-serif; }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {}
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-50">
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo } = React;
+
+// ── Lucide icons via UMD ──
+const ic = (name) => {
+  const C = lucide[name];
+  return (props) => {
+    const ref = React.useRef(null);
+    useEffect(() => {
+      if (ref.current && C) {
+        ref.current.innerHTML = "";
+        const el = document.createElementNS("http://www.w3.org/2000/svg","svg");
+        el.setAttribute("width", props.size || 16);
+        el.setAttribute("height", props.size || 16);
+        el.setAttribute("viewBox","0 0 24 24");
+        el.setAttribute("fill","none");
+        el.setAttribute("stroke","currentColor");
+        el.setAttribute("stroke-width", props.strokeWidth || 2);
+        el.setAttribute("stroke-linecap","round");
+        el.setAttribute("stroke-linejoin","round");
+        // get path data from lucide
+        const tmp = document.createElement("div");
+        lucide.createIcons({ icons: { [name]: C }, nameAttr: "data-icon" });
+        // use createElement approach
+        const svg = C[2] || [];
+        const renderChildren = (children) => {
+          if (!Array.isArray(children)) return;
+          children.forEach(([tag, attrs]) => {
+            const child = document.createElementNS("http://www.w3.org/2000/svg", tag);
+            Object.entries(attrs || {}).forEach(([k,v]) => child.setAttribute(k, v));
+            el.appendChild(child);
+          });
+        };
+        if (C && C[2]) renderChildren(C[2]);
+        if (props.className) el.setAttribute("class", props.className);
+        ref.current.appendChild(el);
+      }
+    });
+    return <span ref={ref} style={{display:"inline-flex",alignItems:"center",verticalAlign:"middle"}} />;
+  };
+};
+
+// Pre-build icon components
+const Icons = {};
+const iconNames = ["Plus","Search","X","Edit3","Trash2","LayoutGrid","List","BarChart2",
+  "ChevronRight","Briefcase","Building2","Mail","Phone","DollarSign","StickyNote",
+  "TrendingUp","Award","Target","Clock","ArrowUpDown","ChevronUp","ChevronDown","Check"];
+iconNames.forEach(n => { Icons[n] = ic(n); });
+
+// ── Constants ──
+const STATUSES = [
+  { id:"todo",      label:"À postuler",        dot:"#94a3b8",
+    colorBar:"background:#94a3b8", badgeBg:"#f1f5f9", badgeText:"#475569", badgeBorder:"#cbd5e1" },
+  { id:"applied",   label:"Postulé",            dot:"#3b82f6",
+    colorBar:"background:#3b82f6", badgeBg:"#eff6ff", badgeText:"#1d4ed8", badgeBorder:"#bfdbfe" },
+  { id:"interview", label:"Entretien planifié", dot:"#6366f1",
+    colorBar:"background:#6366f1", badgeBg:"#eef2ff", badgeText:"#4338ca", badgeBorder:"#c7d2fe" },
+  { id:"offer",     label:"Offre reçue",        dot:"#10b981",
+    colorBar:"background:#10b981", badgeBg:"#ecfdf5", badgeText:"#065f46", badgeBorder:"#a7f3d0" },
+  { id:"rejected",  label:"Refusé / Archivé",   dot:"#f43f5e",
+    colorBar:"background:#f43f5e", badgeBg:"#fff1f2", badgeText:"#be123c", badgeBorder:"#fecdd3" },
+];
+
+const EMPTY_FORM = { company:"", position:"", contact:"", email:"", phone:"", salary:"", status:"todo", notes:"" };
+const LS_KEY = "jobtracker_v1";
+const uid = () => Math.random().toString(36).slice(2,10);
+const statusInfo = (id) => STATUSES.find(s => s.id === id) || STATUSES[0];
+const loadJobs = () => { try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch { return []; } };
+const saveJobs = (d) => localStorage.setItem(LS_KEY, JSON.stringify(d));
+
+// ── Badge ──
+function Badge({ statusId }) {
+  const s = statusInfo(statusId);
+  return (
+    <span style={{
+      display:"inline-flex", alignItems:"center", gap:6, padding:"2px 10px",
+      borderRadius:999, fontSize:11, fontWeight:500,
+      background:s.badgeBg, color:s.badgeText, border:`1px solid ${s.badgeBorder}`
+    }}>
+      <span style={{width:6, height:6, borderRadius:999, background:s.dot, display:"inline-block"}} />
+      {s.label}
+    </span>
+  );
+}
+
+// ── Modal ──
+function Modal({ title, onClose, children }) {
+  useEffect(() => {
+    const h = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:50,display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+         className="sm:items-center sm:p-4">
+      <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.45)",backdropFilter:"blur(4px)"}} />
+      <div style={{
+        position:"relative", background:"#fff", width:"100%", maxHeight:"90vh",
+        overflowY:"auto", borderRadius:"16px 16px 0 0", boxShadow:"0 25px 50px rgba(0,0,0,0.25)"
+      }} className="sm:max-w-lg sm:rounded-2xl">
+        <div style={{
+          position:"sticky", top:0, background:"#fff", borderBottom:"1px solid #f1f5f9",
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"16px 20px", zIndex:10
+        }}>
+          <span style={{fontWeight:600, color:"#0f172a", fontSize:17}}>{title}</span>
+          <button onClick={onClose} style={{padding:8, borderRadius:999, border:"none", background:"transparent", cursor:"pointer", color:"#64748b"}}>
+            <Icons.X size={18} />
+          </button>
+        </div>
+        <div style={{padding:20}}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Input styles ──
+const INP = {
+  width:"100%", padding:"10px 12px", borderRadius:12, border:"1px solid #e2e8f0",
+  background:"#f8fafc", color:"#0f172a", fontSize:13, outline:"none",
+  boxSizing:"border-box", fontFamily:"inherit"
+};
+
+function Field({ label, children }) {
+  return (
+    <div style={{display:"flex", flexDirection:"column", gap:6}}>
+      <label style={{fontSize:11, fontWeight:600, color:"#64748b", textTransform:"uppercase", letterSpacing:"0.05em"}}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+// ── JobForm ──
+function JobForm({ initial = EMPTY_FORM, onSave, onCancel }) {
+  const [form, setForm] = useState({...initial});
+  const set = (k) => (e) => setForm(f => ({...f, [k]: e.target.value}));
+
+  return (
+    <div style={{display:"flex", flexDirection:"column", gap:16}}>
+      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14}}>
+        <Field label="Entreprise">
+          <input style={INP} placeholder="Nom de l'entreprise" value={form.company} onChange={set("company")} />
+        </Field>
+        <Field label="Poste">
+          <input style={INP} placeholder="Intitulé du poste" value={form.position} onChange={set("position")} />
+        </Field>
+        <Field label="Contact">
+          <input style={INP} placeholder="Prénom Nom" value={form.contact} onChange={set("contact")} />
+        </Field>
+        <Field label="E-mail">
+          <input style={INP} type="email" placeholder="contact@entreprise.fr" value={form.email} onChange={set("email")} />
+        </Field>
+        <Field label="Téléphone">
+          <input style={INP} placeholder="+33 6 …" value={form.phone} onChange={set("phone")} />
+        </Field>
+        <Field label="Salaire">
+          <input style={INP} placeholder="45k€ brut / an" value={form.salary} onChange={set("salary")} />
+        </Field>
+      </div>
+      <Field label="Statut">
+        <select style={INP} value={form.status} onChange={set("status")}>
+          {STATUSES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+        </select>
+      </Field>
+      <Field label="Notes">
+        <textarea style={{...INP, resize:"none", minHeight:90}} rows={4}
+          placeholder="Informations complémentaires, liens, contacts…"
+          value={form.notes} onChange={set("notes")} />
+      </Field>
+      <div style={{display:"flex", gap:12, paddingTop:4}}>
+        <button onClick={onCancel} style={{
+          flex:1, padding:"10px 16px", borderRadius:12, border:"1px solid #e2e8f0",
+          background:"#fff", color:"#475569", fontSize:13, fontWeight:500, cursor:"pointer", fontFamily:"inherit"
+        }}>Annuler</button>
+        <button onClick={() => { if (form.company || form.position) onSave(form); }} style={{
+          flex:1, padding:"10px 16px", borderRadius:12, border:"none",
+          background:"#2563eb", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer", fontFamily:"inherit"
+        }}>Sauvegarder</button>
+      </div>
+    </div>
+  );
+}
+
+// ── KanbanCard ──
+function KanbanCard({ job, onEdit, onDelete, onStatusChange }) {
+  const [open, setOpen] = useState(false);
+  const s = statusInfo(job.status);
+  const nextIdx = STATUSES.findIndex(x => x.id === job.status) + 1;
+  const next = STATUSES[nextIdx];
+
+  return (
+    <div style={{
+      background:"#fff", borderRadius:14, border:"1px solid #f1f5f9",
+      boxShadow:"0 1px 4px rgba(0,0,0,0.06)", padding:16,
+      display:"flex", flexDirection:"column", gap:10
+    }}>
+      <div style={{display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8}}>
+        <div style={{minWidth:0}}>
+          <div style={{fontWeight:600, color:"#0f172a", fontSize:13, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+            {job.company || "—"}
+          </div>
+          <div style={{fontSize:11, color:"#64748b", marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+            {job.position || "Poste non défini"}
+          </div>
+        </div>
+        <button onClick={() => setOpen(!open)} style={{
+          padding:6, borderRadius:8, border:"none", background:"transparent",
+          color:"#94a3b8", cursor:"pointer", flexShrink:0
+        }}>
+          <Icons.Edit3 size={14} />
+        </button>
+      </div>
+      {job.contact && <div style={{fontSize:11, color:"#94a3b8", display:"flex", alignItems:"center", gap:6}}>
+        <Icons.Mail size={11} />{job.contact}
+      </div>}
+      {job.salary && <div style={{fontSize:11, color:"#94a3b8", display:"flex", alignItems:"center", gap:6}}>
+        <Icons.DollarSign size={11} />{job.salary}
+      </div>}
+      {open && (
+        <div style={{paddingTop:10, borderTop:"1px solid #f1f5f9", display:"flex", flexDirection:"column", gap:8}}>
+          {next && (
+            <button onClick={() => { onStatusChange(job.id, next.id); setOpen(false); }} style={{
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              padding:"8px 12px", borderRadius:8, border:`1px solid ${next.badgeBorder}`,
+              background:next.badgeBg, color:next.badgeText, fontSize:11, fontWeight:500, cursor:"pointer", fontFamily:"inherit"
+            }}>
+              <span>→ {next.label}</span>
+              <Icons.ChevronRight size={13} />
+            </button>
+          )}
+          <div style={{display:"flex", gap:8}}>
+            <button onClick={() => { onEdit(job); setOpen(false); }} style={{
+              flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+              padding:"7px 12px", borderRadius:8, border:"none", background:"#f1f5f9",
+              color:"#475569", fontSize:11, fontWeight:500, cursor:"pointer", fontFamily:"inherit"
+            }}>
+              <Icons.Edit3 size={12} /> Modifier
+            </button>
+            <button onClick={() => onDelete(job.id)} style={{
+              padding:"7px 12px", borderRadius:8, border:"none", background:"#fff1f2",
+              color:"#be123c", cursor:"pointer", fontFamily:"inherit"
+            }}>
+              <Icons.Trash2 size={12} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── KanbanView ──
+function KanbanView({ jobs, onEdit, onDelete, onStatusChange }) {
+  return (
+    <div className="hide-scrollbar" style={{
+      display:"flex", gap:16, overflowX:"auto", paddingBottom:16, paddingTop:4
+    }}>
+      {STATUSES.map(status => {
+        const cols = jobs.filter(j => j.status === status.id);
+        return (
+          <div key={status.id} style={{flexShrink:0, width:280, display:"flex", flexDirection:"column", gap:12}}>
+            {/* Column header */}
+            <div style={{background:"#fff", borderRadius:14, border:"1px solid #f1f5f9", overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
+              <div style={{height:5, [status.colorBar.split(":")[0]]: status.colorBar.split(":")[1], background: status.dot}} />
+              <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px"}}>
+                <span style={{fontSize:13, fontWeight:600, color:"#334155"}}>{status.label}</span>
+                <span style={{fontSize:11, fontWeight:700, padding:"2px 8px", borderRadius:999, background:status.badgeBg, color:status.badgeText}}>
+                  {cols.length}
+                </span>
+              </div>
+            </div>
+            {/* Cards */}
+            {cols.length === 0
+              ? <div style={{border:"2px dashed #e2e8f0", borderRadius:14, padding:"24px 0", textAlign:"center", color:"#94a3b8", fontSize:12}}>
+                  Aucune candidature
+                </div>
+              : cols.map(job => (
+                  <KanbanCard key={job.id} job={job} onEdit={onEdit} onDelete={onDelete} onStatusChange={onStatusChange} />
+                ))
+            }
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── ListView ──
+function ListView({ jobs, onEdit, onDelete, onStatusChange }) {
+  const [sort, setSort] = useState({ key:"company", dir:"asc" });
+  const sorted = useMemo(() => [...jobs].sort((a, b) => {
+    const va = (a[sort.key]||"").toLowerCase(), vb = (b[sort.key]||"").toLowerCase();
+    return sort.dir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+  }), [jobs, sort]);
+  const toggleSort = (key) => setSort(s => ({ key, dir: s.key === key && s.dir === "asc" ? "desc" : "asc" }));
+
+  return (
+    <div style={{background:"#fff", borderRadius:18, border:"1px solid #f1f5f9", boxShadow:"0 1px 4px rgba(0,0,0,0.06)", overflow:"hidden"}}>
+      {/* Desktop table */}
+      <div className="hidden sm:block" style={{overflowX:"auto"}}>
+        <table style={{width:"100%", borderCollapse:"collapse"}}>
+          <thead style={{background:"#f8fafc", borderBottom:"1px solid #f1f5f9"}}>
+            <tr>
+              {[["company","Entreprise"],["position","Poste"],["contact","Contact"],["salary","Salaire"]].map(([k,l]) => (
+                <th key={k} onClick={() => toggleSort(k)} style={{
+                  textAlign:"left", padding:"12px 16px", fontSize:11, fontWeight:600, color:"#64748b",
+                  textTransform:"uppercase", letterSpacing:"0.05em", cursor:"pointer", whiteSpace:"nowrap"
+                }}>
+                  {l} {sort.key===k ? (sort.dir==="asc" ? "↑" : "↓") : ""}
+                </th>
+              ))}
+              <th style={{textAlign:"left", padding:"12px 16px", fontSize:11, fontWeight:600, color:"#64748b", textTransform:"uppercase", letterSpacing:"0.05em"}}>Statut</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((job, i) => (
+              <tr key={job.id} style={{borderTop: i > 0 ? "1px solid #f8fafc" : "none"}}>
+                <td style={{padding:"12px 16px", fontWeight:500, color:"#0f172a", fontSize:13}}>{job.company||"—"}</td>
+                <td style={{padding:"12px 16px", color:"#475569", fontSize:13}}>{job.position||"—"}</td>
+                <td style={{padding:"12px 16px", color:"#64748b", fontSize:13}}>{job.contact||"—"}</td>
+                <td style={{padding:"12px 16px", color:"#64748b", fontSize:13, whiteSpace:"nowrap"}}>{job.salary||"—"}</td>
+                <td style={{padding:"12px 16px"}}><Badge statusId={job.status} /></td>
+                <td style={{padding:"12px 16px"}}>
+                  <div style={{display:"flex", gap:8, justifyContent:"flex-end"}}>
+                    <button onClick={() => onEdit(job)} style={{padding:6, borderRadius:8, border:"none", background:"transparent", color:"#94a3b8", cursor:"pointer"}}>
+                      <Icons.Edit3 size={14} />
+                    </button>
+                    <button onClick={() => onDelete(job.id)} style={{padding:6, borderRadius:8, border:"none", background:"transparent", color:"#94a3b8", cursor:"pointer"}}>
+                      <Icons.Trash2 size={14} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile list */}
+      <div className="sm:hidden">
+        {sorted.map((job, i) => {
+          const next = STATUSES[STATUSES.findIndex(x => x.id === job.status) + 1];
+          return (
+            <div key={job.id} style={{padding:"14px 16px", borderTop: i > 0 ? "1px solid #f8fafc" : "none"}}>
+              <div style={{display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10, marginBottom:8}}>
+                <div>
+                  <div style={{fontWeight:600, color:"#0f172a", fontSize:13}}>{job.company||"—"}</div>
+                  <div style={{fontSize:11, color:"#64748b", marginTop:2}}>{job.position||"—"}</div>
+                </div>
+                <Badge statusId={job.status} />
+              </div>
+              {job.salary && <div style={{fontSize:11, color:"#94a3b8", marginBottom:8}}>{job.salary}</div>}
+              <div style={{display:"flex", gap:8}}>
+                {next && <button onClick={() => onStatusChange(job.id, next.id)} style={{
+                  flex:1, fontSize:11, padding:"7px 10px", borderRadius:8,
+                  border:`1px solid ${next.badgeBorder}`, background:next.badgeBg,
+                  color:next.badgeText, cursor:"pointer", fontFamily:"inherit", fontWeight:500
+                }}>→ {next.label}</button>}
+                <button onClick={() => onEdit(job)} style={{padding:"7px 10px", borderRadius:8, border:"none", background:"#f1f5f9", color:"#475569", cursor:"pointer"}}>
+                  <Icons.Edit3 size={13} />
+                </button>
+                <button onClick={() => onDelete(job.id)} style={{padding:"7px 10px", borderRadius:8, border:"none", background:"#fff1f2", color:"#be123c", cursor:"pointer"}}>
+                  <Icons.Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {sorted.length === 0 && (
+        <div style={{padding:"60px 0", textAlign:"center"}}>
+          <div style={{color:"#cbd5e1", marginBottom:12}}><Icons.Briefcase size={36} /></div>
+          <div style={{color:"#64748b", fontSize:14, fontWeight:500}}>Aucune candidature</div>
+          <div style={{color:"#94a3b8", fontSize:12, marginTop:4}}>Ajoutez-en une avec le bouton +</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── StatsView ──
+function StatCard({ Icon, label, value, sub, bg }) {
+  return (
+    <div style={{background:"#fff", borderRadius:18, border:"1px solid #f1f5f9", boxShadow:"0 1px 4px rgba(0,0,0,0.06)", padding:20, display:"flex", alignItems:"center", gap:16}}>
+      <div style={{width:48, height:48, borderRadius:14, background:bg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>
+        <Icon size={22} style={{color:"#fff"}} />
+      </div>
+      <div>
+        <div style={{fontSize:24, fontWeight:700, color:"#0f172a"}}>{value}</div>
+        <div style={{fontSize:12, fontWeight:500, color:"#475569", marginTop:2}}>{label}</div>
+        {sub && <div style={{fontSize:11, color:"#94a3b8", marginTop:2}}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+function StatsView({ jobs }) {
+  const total = jobs.length;
+  const by = Object.fromEntries(STATUSES.map(s => [s.id, jobs.filter(j => j.status === s.id).length]));
+  const interviews = (by.interview||0) + (by.offer||0);
+  const intRate = total ? Math.round((interviews/total)*100) : 0;
+  const offRate = total ? Math.round(((by.offer||0)/total)*100) : 0;
+
+  return (
+    <div style={{display:"flex", flexDirection:"column", gap:20}}>
+      <div style={{display:"grid", gridTemplateColumns:"repeat(2, 1fr)", gap:12}}>
+        <StatCard Icon={Icons.Briefcase} label="Candidatures" value={total} sub="au total" bg="#2563eb" />
+        <StatCard Icon={Icons.Clock} label="À postuler" value={by.todo||0} sub="en attente" bg="#94a3b8" />
+        <StatCard Icon={Icons.Target} label="Taux d'entretien" value={`${intRate}%`} sub="des candidatures" bg="#6366f1" />
+        <StatCard Icon={Icons.Award} label="Offres reçues" value={by.offer||0} sub={`${offRate}% de réussite`} bg="#10b981" />
+      </div>
+      <div style={{background:"#fff", borderRadius:18, border:"1px solid #f1f5f9", boxShadow:"0 1px 4px rgba(0,0,0,0.06)", padding:20}}>
+        <div style={{display:"flex", alignItems:"center", gap:8, fontWeight:600, color:"#0f172a", fontSize:15, marginBottom:16}}>
+          <Icons.TrendingUp size={16} style={{color:"#3b82f6"}} /> Entonnoir de candidature
+        </div>
+        <div style={{display:"flex", flexDirection:"column", gap:14}}>
+          {STATUSES.map(s => {
+            const count = by[s.id]||0;
+            const pct = total ? Math.round((count/total)*100) : 0;
+            return (
+              <div key={s.id}>
+                <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6}}>
+                  <div style={{display:"flex", alignItems:"center", gap:8}}>
+                    <span style={{width:10, height:10, borderRadius:999, background:s.dot, display:"inline-block"}} />
+                    <span style={{fontSize:13, fontWeight:500, color:"#334155"}}>{s.label}</span>
+                  </div>
+                  <div style={{display:"flex", alignItems:"center", gap:8}}>
+                    <span style={{fontSize:11, color:"#94a3b8"}}>{pct}%</span>
+                    <span style={{fontSize:11, fontWeight:700, padding:"2px 8px", borderRadius:999, background:s.badgeBg, color:s.badgeText}}>{count}</span>
+                  </div>
+                </div>
+                <div style={{height:8, background:"#f1f5f9", borderRadius:999, overflow:"hidden"}}>
+                  <div style={{height:"100%", width:`${pct}%`, background:s.dot, borderRadius:999, transition:"width 0.6s ease"}} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {total === 0 && (
+        <div style={{textAlign:"center", padding:"48px 0"}}>
+          <div style={{color:"#cbd5e1", marginBottom:12}}><Icons.BarChart2 size={40} /></div>
+          <div style={{color:"#64748b", fontSize:14}}>Ajoutez des candidatures pour voir les statistiques</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── App ──
+const NAV = [
+  { id:"kanban", label:"Kanban",  Icon: Icons.LayoutGrid },
+  { id:"list",   label:"Tableau", Icon: Icons.List       },
+  { id:"stats",  label:"Stats",   Icon: Icons.BarChart2  },
+];
+
+function App() {
+  const [jobs, setJobs] = useState(loadJobs);
+  const [view, setView] = useState("kanban");
+  const [search, setSearch] = useState("");
+  const [modal, setModal] = useState(null);
+
+  useEffect(() => saveJobs(jobs), [jobs]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return jobs;
+    const q = search.toLowerCase();
+    return jobs.filter(j => j.company.toLowerCase().includes(q) || j.position.toLowerCase().includes(q));
+  }, [jobs, search]);
+
+  const addJob = (form) => { setJobs(j => [{ ...form, id:uid(), createdAt:Date.now() }, ...j]); setModal(null); };
+  const editJob = (form) => { setJobs(j => j.map(x => x.id === modal.id ? {...x,...form} : x)); setModal(null); };
+  const deleteJob = (id) => { if (window.confirm("Supprimer cette candidature ?")) setJobs(j => j.filter(x => x.id !== id)); };
+  const changeStatus = (id, status) => setJobs(j => j.map(x => x.id === id ? {...x, status} : x));
+
+  const currentNav = NAV.find(n => n.id === view);
+
+  return (
+    <div style={{minHeight:"100vh", background:"#f8fafc"}}>
+
+      {/* Sidebar desktop */}
+      <div className="hidden md:flex" style={{
+        flexDirection:"column", position:"fixed", left:0, top:0, bottom:0, width:224,
+        background:"#0f172a", color:"#fff", zIndex:40
+      }}>
+        {/* Logo */}
+        <div style={{padding:"24px 20px", borderBottom:"1px solid #1e293b"}}>
+          <div style={{display:"flex", alignItems:"center", gap:12}}>
+            <div style={{width:32, height:32, borderRadius:10, background:"#2563eb", display:"flex", alignItems:"center", justifyContent:"center"}}>
+              <Icons.Briefcase size={15} style={{color:"#fff"}} />
+            </div>
+            <div>
+              <div style={{fontWeight:700, fontSize:14, lineHeight:1.2}}>JobTracker</div>
+              <div style={{fontSize:11, color:"#64748b", marginTop:2}}>Mes candidatures</div>
+            </div>
+          </div>
+        </div>
+        {/* Nav links */}
+        <nav style={{flex:1, padding:"12px"}}>
+          {NAV.map(({id, label, Icon}) => (
+            <button key={id} onClick={() => setView(id)} style={{
+              width:"100%", display:"flex", alignItems:"center", gap:12,
+              padding:"10px 12px", borderRadius:12, border:"none", cursor:"pointer",
+              fontFamily:"inherit", fontSize:13, fontWeight:500, marginBottom:4,
+              background: view===id ? "#2563eb" : "transparent",
+              color: view===id ? "#fff" : "#64748b",
+              transition:"all 0.15s"
+            }}>
+              <Icon size={17} /> {label}
+            </button>
+          ))}
+        </nav>
+        {/* Add btn */}
+        <div style={{padding:16, borderTop:"1px solid #1e293b"}}>
+          <button onClick={() => setModal("add")} style={{
+            width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+            padding:"10px 16px", borderRadius:12, border:"none", background:"#2563eb",
+            color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer", fontFamily:"inherit"
+          }}>
+            <Icons.Plus size={16} /> Nouvelle candidature
+          </button>
+        </div>
+      </div>
+
+      {/* Main */}
+      <main style={{marginLeft:0}} className="md:ml-56-placeholder" id="main-content">
+
+        {/* Header */}
+        <div style={{
+          position:"sticky", top:0, zIndex:30, background:"rgba(255,255,255,0.92)",
+          backdropFilter:"blur(12px)", borderBottom:"1px solid #f1f5f9",
+          padding:"10px 16px", display:"flex", alignItems:"center", gap:12
+        }}>
+          {/* Mobile logo */}
+          <div className="md:hidden" style={{display:"flex", alignItems:"center", gap:8, flexShrink:0}}>
+            <div style={{width:28, height:28, borderRadius:8, background:"#2563eb", display:"flex", alignItems:"center", justifyContent:"center"}}>
+              <Icons.Briefcase size={13} style={{color:"#fff"}} />
+            </div>
+            <span style={{fontWeight:700, color:"#0f172a", fontSize:13}}>JobTracker</span>
+          </div>
+          {/* Search */}
+          <div style={{flex:1, position:"relative"}}>
+            <span style={{position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:"#94a3b8", display:"flex"}}>
+              <Icons.Search size={15} />
+            </span>
+            <input
+              style={{...INP, paddingLeft:34, paddingRight:search ? 34 : 12, borderRadius:12, border:"1px solid transparent", background:"#f1f5f9"}}
+              placeholder="Rechercher entreprise ou poste…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            {search && (
+              <button onClick={() => setSearch("")} style={{position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#94a3b8", display:"flex"}}>
+                <Icons.X size={14} />
+              </button>
+            )}
+          </div>
+          <span className="hidden sm:block" style={{fontSize:11, color:"#94a3b8", fontWeight:500, whiteSpace:"nowrap"}}>
+            {filtered.length} candidature{filtered.length!==1?"s":""}
+          </span>
+          {/* Mobile add */}
+          <button onClick={() => setModal("add")} className="md:hidden" style={{
+            width:36, height:36, borderRadius:10, border:"none", background:"#2563eb",
+            color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0
+          }}>
+            <Icons.Plus size={17} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{padding:"20px 16px 100px", maxWidth:"100%", overflowX:"hidden"}} id="content-area">
+          <div style={{fontWeight:700, color:"#0f172a", fontSize:17, marginBottom:16, display:"flex", alignItems:"center", gap:8}}>
+            {currentNav?.label}
+            {search && <span style={{fontSize:13, fontWeight:400, color:"#94a3b8"}}>· filtre : "{search}"</span>}
+          </div>
+          {view === "kanban" && <KanbanView jobs={filtered} onEdit={setModal} onDelete={deleteJob} onStatusChange={changeStatus} />}
+          {view === "list"   && <ListView   jobs={filtered} onEdit={setModal} onDelete={deleteJob} onStatusChange={changeStatus} />}
+          {view === "stats"  && <StatsView  jobs={jobs} />}
+        </div>
+      </main>
+
+      {/* Bottom nav mobile */}
+      <div className="md:hidden" style={{
+        position:"fixed", bottom:0, left:0, right:0, zIndex:40,
+        background:"#fff", borderTop:"1px solid #f1f5f9",
+        display:"flex"
+      }}>
+        {NAV.map(({id, label, Icon}) => (
+          <button key={id} onClick={() => setView(id)} style={{
+            flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4,
+            padding:"10px 0 12px", border:"none", background:"transparent", cursor:"pointer",
+            fontFamily:"inherit", fontSize:11, fontWeight:500,
+            color: view===id ? "#2563eb" : "#94a3b8"
+          }}>
+            <Icon size={20} />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Modal */}
+      {modal && (
+        <Modal
+          title={modal === "add" ? "Nouvelle candidature" : "Modifier la candidature"}
+          onClose={() => setModal(null)}
+        >
+          <JobForm
+            initial={modal === "add" ? EMPTY_FORM : modal}
+            onSave={modal === "add" ? addJob : editJob}
+            onCancel={() => setModal(null)}
+          />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// Fix md:ml sidebar on desktop via inline style injection
+const style = document.createElement("style");
+style.textContent = `
+  @media (min-width: 768px) {
+    #main-content { margin-left: 224px !important; }
+    .hidden { display: none !important; }
+    .md\\:flex { display: flex !important; }
+    .md\\:hidden { display: none !important; }
+    .sm\\:block { display: block !important; }
+  }
+  @media (max-width: 767px) {
+    .hidden { display: block; }
+    .md\\:flex { display: none !important; }
+    .sm\\:block { display: none; }
+  }
+  @media (min-width: 640px) {
+    .sm\\:block { display: block !important; }
+    .hidden.sm\\:block { display: block !important; }
+  }
+`;
+document.head.appendChild(style);
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

@@ -10,32 +10,48 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDxGH25xikVoIC1W5e1dzxhCZ11HwZPbtQ",
+      authDomain: "jobtracker-19e6b.firebaseapp.com",
+      projectId: "jobtracker-19e6b",
+      storageBucket: "jobtracker-19e6b.firebasestorage.app",
+      messagingSenderId: "153941457110",
+      appId: "1:153941457110:web:ef965b10649d216404f177",
+      measurementId: "G-2YMBX30M6T"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    window.__db = db;
+    window.__fbReady = true;
+    window.__collection = collection;
+    window.__doc = doc;
+    window.__onSnapshot = onSnapshot;
+    window.__setDoc = setDoc;
+    window.__deleteDoc = deleteDoc;
+    window.__getDocs = getDocs;
+    window.dispatchEvent(new Event("firebase-ready"));
+  </script>
   <style>
     *{font-family:'Inter',system-ui,sans-serif;box-sizing:border-box;}
     body{margin:0;background:#f8fafc;}
-    .hs::-webkit-scrollbar{display:none;}
-    .hs{-ms-overflow-style:none;scrollbar-width:none;}
+    .hs::-webkit-scrollbar{display:none;}.hs{-ms-overflow-style:none;scrollbar-width:none;}
     input:focus,select:focus,textarea:focus{outline:none;border-color:#6366f1!important;background:#fff!important;box-shadow:0 0 0 3px rgba(99,102,241,0.15);}
     button:active{opacity:0.82;}
-    @media(min-width:768px){
-      .mob{display:none!important;}
-      .dsk{display:flex!important;}
-      .dsk-bl{display:block!important;}
-      .mc{margin-left:220px!important;}
-      .bnav{display:none!important;}
-    }
-    @media(max-width:767px){
-      .desk{display:none!important;}
-      .dsk{display:none!important;}
-      .dsk-bl{display:none!important;}
-      .mc{margin-left:0!important;}
-      .bnav{display:flex!important;}
-    }
+    @media(min-width:768px){.mob{display:none!important;}.dsk{display:flex!important;}.dsk-bl{display:block!important;}.mc{margin-left:220px!important;}.bnav{display:none!important;}}
+    @media(max-width:767px){.desk{display:none!important;}.dsk{display:none!important;}.dsk-bl{display:none!important;}.mc{margin-left:0!important;}.bnav{display:flex!important;}}
     @media(min-width:640px){.sg2{grid-template-columns:1fr 1fr!important;}.srd{border-radius:16px!important;}}
     .tab-btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:all 0.15s;}
     .tab-btn.active{background:#6366f1;color:#fff;}
     .tab-btn:not(.active){background:#f1f5f9;color:#64748b;}
     .card{background:#fff;border-radius:14px;border:1px solid #e8edf2;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .spin{animation:spin 1s linear infinite;}
   </style>
 </head>
 <body><div id="root"></div>
@@ -43,7 +59,7 @@
 const {useState,useEffect,useMemo,useRef,useCallback} = React;
 
 // ── Icons ──
-const Ic = ({d,size=16,sw=2,col,style:s={}})=>(
+const Ic=({d,size=16,sw=2,col,style:s={}})=>(
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={col||"currentColor"}
     strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"
     style={{display:"inline-block",verticalAlign:"middle",flexShrink:0,...s}}>
@@ -51,22 +67,17 @@ const Ic = ({d,size=16,sw=2,col,style:s={}})=>(
   </svg>
 );
 const IC={
-  Plus:"M12 5v14M5 12h14",
-  Search:"M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z",
-  X:"M18 6L6 18M6 6l12 12",
-  Edit:["M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7","M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"],
+  Plus:"M12 5v14M5 12h14",Search:"M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z",
+  X:"M18 6L6 18M6 6l12 12",Edit:["M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7","M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"],
   Trash:["M3 6h18","M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6","M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"],
   Kanban:["M3 3h7v7H3z","M14 3h7v7h-7z","M3 14h7v7H3z","M14 14h7v7h-7z"],
   List:["M8 6h13","M8 12h13","M8 18h13","M3 6h.01","M3 12h.01","M3 18h.01"],
   Chart:["M18 20V10","M12 20V4","M6 20v-6"],
   Timeline:["M12 8v4l3 3","M3.05 11a9 9 0 1 0 .5-3"],
   Compare:["M9 3H5a2 2 0 0 0-2 2v4","M9 3h10a2 2 0 0 1 2 2v4","M9 3v18","M3 9h18","M3 15h18","M9 21H5a2 2 0 0 1-2-2v-4","M9 21h10a2 2 0 0 0 2-2v-4"],
-  ChevR:"M9 18l6-6-6-6",
-  ChevD:"M6 9l6 6 6-6",
-  ChevU:"M18 15l-6-6-6 6",
+  ChevR:"M9 18l6-6-6-6",ChevD:"M6 9l6 6 6-6",ChevU:"M18 15l-6-6-6 6",
   Brief:["M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z","M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"],
   Mail:["M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z","M22 6l-10 7L2 6"],
-  Phone:"M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.13 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16l.92.92z",
   Dollar:["M12 1v22","M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"],
   Bell:["M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9","M13.73 21a2 2 0 0 1-3.46 0"],
   Tag:"M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z M7 7h.01",
@@ -79,13 +90,22 @@ const IC={
   Alert:"M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z M12 9v4 M12 17h.01",
   Copy:["M20 9H11a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2z","M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"],
   Check:"M20 6L9 17l-5-5",
+  Cloud:["M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"],
 };
 const I=({n,size=16,sw=2,col,style:s={}})=><Ic d={IC[n]} size={size} sw={sw} col={col} style={s}/>;
 
+// ── Firebase helpers ──
+const getDB = () => window.__db;
+const fbCollection = (...args) => window.__collection(...args);
+const fbDoc = (...args) => window.__doc(...args);
+const fbOnSnapshot = (...args) => window.__onSnapshot(...args);
+const fbSetDoc = (...args) => window.__setDoc(...args);
+const fbDeleteDoc = (...args) => window.__deleteDoc(...args);
+
 // ── Constants ──
 const PROFILES=[
-  {id:"nicolas", name:"Nicolas", avatar:"N", color:"#6366f1", bg:"#eef2ff"},
-  {id:"anjana",  name:"Anjana",  avatar:"A", color:"#ec4899", bg:"#fdf2f8"},
+  {id:"nicolas",name:"Nicolas",avatar:"N",color:"#6366f1",bg:"#eef2ff"},
+  {id:"anjana", name:"Anjana", avatar:"A",color:"#ec4899",bg:"#fdf2f8"},
 ];
 const STATUSES=[
   {id:"todo",      label:"À postuler",        dot:"#94a3b8",badgeBg:"#f1f5f9",badgeText:"#475569",badgeBorder:"#cbd5e1",bar:"#94a3b8"},
@@ -96,17 +116,9 @@ const STATUSES=[
 ];
 const si=id=>STATUSES.find(s=>s.id===id)||STATUSES[0];
 const uid=()=>Math.random().toString(36).slice(2,10);
-const lsKey=(pid,k)=>`jt_${pid}_${k}`;
-const loadLS=(pid,k)=>{try{return JSON.parse(localStorage.getItem(lsKey(pid,k)))||null;}catch{return null;}};
-const saveLS=(pid,k,v)=>localStorage.setItem(lsKey(pid,k),JSON.stringify(v));
 const fmtDate=d=>d?new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"}):"—";
-const daysDiff=d=>{if(!d)return null;const diff=Math.floor((new Date(d)-new Date())/86400000);return diff;};
-
-const EMPTY_JOB={
-  company:"",position:"",contact:"",email:"",phone:"",salary:"",
-  status:"todo",notes:"",tags:[],links:[],
-  followUpDate:"",journal:[],prep:{questions:"",research:"",toAsk:""},
-};
+const daysDiff=d=>{if(!d)return null;return Math.floor((new Date(d)-new Date())/86400000);};
+const EMPTY_JOB={company:"",position:"",contact:"",email:"",phone:"",salary:"",status:"todo",notes:"",tags:[],links:[],followUpDate:"",journal:[],prep:{questions:"",research:"",toAsk:""}};
 
 // ── Shared UI ──
 const INP={width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid #e2e8f0",background:"#f8fafc",color:"#0f172a",fontSize:13,fontFamily:"inherit",transition:"all 0.15s"};
@@ -120,41 +132,37 @@ const FL=({label,children})=>(
 function StatusBadge({id}){
   const s=si(id);
   return <span style={{display:"inline-flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:999,fontSize:11,fontWeight:500,background:s.badgeBg,color:s.badgeText,border:`1px solid ${s.badgeBorder}`,whiteSpace:"nowrap"}}>
-    <span style={{width:6,height:6,borderRadius:999,background:s.dot,display:"inline-block"}}/>
-    {s.label}
+    <span style={{width:6,height:6,borderRadius:999,background:s.dot,display:"inline-block"}}/>{s.label}
   </span>;
 }
 
-function TagPill({label,color="indigo",onRemove}){
-  const C={indigo:{bg:"#eef2ff",text:"#4338ca",border:"#c7d2fe"},rose:{bg:"#fff1f2",text:"#be123c",border:"#fecdd3"},slate:{bg:"#f1f5f9",text:"#475569",border:"#cbd5e1"}};
+function TagPill({label,color="slate",onRemove}){
+  const C={indigo:{bg:"#eef2ff",text:"#4338ca",border:"#c7d2fe"},slate:{bg:"#f1f5f9",text:"#475569",border:"#cbd5e1"}};
   const c=C[color]||C.slate;
   return <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px 3px 10px",borderRadius:999,fontSize:11,fontWeight:500,background:c.bg,color:c.text,border:`1px solid ${c.border}`,whiteSpace:"nowrap"}}>
-    {label}
-    {onRemove&&<button onClick={onRemove} style={{display:"flex",background:"none",border:"none",cursor:"pointer",color:c.text,padding:0,opacity:.7}}><I n="X" size={10}/></button>}
+    {label}{onRemove&&<button onClick={onRemove} style={{display:"flex",background:"none",border:"none",cursor:"pointer",color:c.text,padding:0,opacity:.7}}><I n="X" size={10}/></button>}
   </span>;
 }
 
 function FollowUpBadge({date}){
   if(!date)return null;
   const d=daysDiff(date);
-  if(d>3)return null;
-  const overdue=d<0;
-  const today=d===0;
+  if(d===null||d>3)return null;
+  const overdue=d<0,today=d===0;
   return <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"2px 8px",borderRadius:999,fontSize:11,fontWeight:600,background:overdue?"#fff1f2":today?"#fffbeb":"#eff6ff",color:overdue?"#be123c":today?"#92400e":"#1d4ed8",border:`1px solid ${overdue?"#fecdd3":today?"#fde68a":"#bfdbfe"}`}}>
-    <I n="Bell" size={11}/>
-    {overdue?`Relance en retard de ${Math.abs(d)}j`:today?"Relance aujourd'hui":`Relance dans ${d}j`}
+    <I n="Bell" size={11}/>{overdue?`Relance en retard de ${Math.abs(d)}j`:today?"Relance aujourd'hui":`Relance dans ${d}j`}
   </span>;
 }
 
-// ── Multi-select tags ──
+// ── Sync status indicator ──
+function SyncDot({syncing}){
+  return <span title={syncing?"Synchronisation…":"Synchronisé"} style={{width:8,height:8,borderRadius:999,background:syncing?"#f59e0b":"#10b981",display:"inline-block",flexShrink:0,transition:"background 0.3s"}} className={syncing?"spin":""}/>;
+}
+
+// ── Multi-select ──
 function MultiSelect({value=[],onChange,allTags=[],onNewTag,placeholder="Ajouter un tag…"}){
-  const [inp,setInp]=useState("");
-  const [open,setOpen]=useState(false);
-  const ref=useRef(null);
-  useEffect(()=>{
-    const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
-    document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
-  },[]);
+  const [inp,setInp]=useState("");const [open,setOpen]=useState(false);const ref=useRef(null);
+  useEffect(()=>{const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
   const filtered=allTags.filter(t=>!value.includes(t)&&t.toLowerCase().includes(inp.toLowerCase()));
   const canCreate=inp.trim()&&!allTags.map(t=>t.toLowerCase()).includes(inp.trim().toLowerCase())&&!value.map(t=>t.toLowerCase()).includes(inp.trim().toLowerCase());
   const add=tag=>{if(!value.includes(tag))onChange([...value,tag]);if(!allTags.includes(tag))onNewTag(tag);setInp("");setOpen(false);};
@@ -178,16 +186,12 @@ function MultiSelect({value=[],onChange,allTags=[],onNewTag,placeholder="Ajouter
 }
 
 // ── Modal ──
-function Modal({title,onClose,children,wide=false}){
-  useEffect(()=>{
-    const h=e=>e.key==="Escape"&&onClose();
-    window.addEventListener("keydown",h);document.body.style.overflow="hidden";
-    return()=>{window.removeEventListener("keydown",h);document.body.style.overflow="";};
-  },[]);
+function Modal({title,onClose,children}){
+  useEffect(()=>{const h=e=>e.key==="Escape"&&onClose();window.addEventListener("keydown",h);document.body.style.overflow="hidden";return()=>{window.removeEventListener("keydown",h);document.body.style.overflow="";};});
   return(
     <div style={{position:"fixed",inset:0,zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
       <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)"}}/>
-      <div style={{position:"relative",background:"#fff",width:"100%",maxWidth:wide?720:520,maxHeight:"94vh",overflowY:"auto",borderRadius:"20px 20px 0 0",boxShadow:"0 -4px 40px rgba(0,0,0,0.2)"}} className="srd">
+      <div style={{position:"relative",background:"#fff",width:"100%",maxWidth:520,maxHeight:"94vh",overflowY:"auto",borderRadius:"20px 20px 0 0",boxShadow:"0 -4px 40px rgba(0,0,0,0.2)"}} className="srd">
         <div style={{position:"sticky",top:0,background:"#fff",borderBottom:"1px solid #f1f5f9",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"15px 20px",zIndex:1}}>
           <span style={{fontWeight:700,color:"#0f172a",fontSize:16}}>{title}</span>
           <button onClick={onClose} style={{padding:8,borderRadius:999,border:"none",background:"#f1f5f9",color:"#64748b",cursor:"pointer",display:"flex"}}><I n="X" size={16}/></button>
@@ -198,7 +202,7 @@ function Modal({title,onClose,children,wide=false}){
   );
 }
 
-// ── Job Form (tabs inside) ──
+// ── Job Form ──
 function JobForm({initial=EMPTY_JOB,onSave,onCancel,globalTags,onNewTag}){
   const [f,setF]=useState({...EMPTY_JOB,...initial,journal:initial.journal||[],prep:initial.prep||{questions:"",research:"",toAsk:""},tags:initial.tags||[],links:initial.links||[]});
   const [tab,setTab]=useState("info");
@@ -206,21 +210,15 @@ function JobForm({initial=EMPTY_JOB,onSave,onCancel,globalTags,onNewTag}){
   const [journalEntry,setJEntry]=useState("");
   const set=k=>e=>setF(p=>({...p,[k]:e.target.value}));
   const setNested=(k,sub)=>e=>setF(p=>({...p,[k]:{...p[k],[sub]:e.target.value}}));
-
   const addLink=()=>{if(newLink.url){setF(p=>({...p,links:[...p.links,{...newLink,id:uid()}]}));setNewLink({label:"",url:""});}};
   const removeLink=id=>setF(p=>({...p,links:p.links.filter(l=>l.id!==id)}));
   const addJEntry=()=>{if(journalEntry.trim()){setF(p=>({...p,journal:[{id:uid(),date:new Date().toISOString(),text:journalEntry},...(p.journal||[])]}));setJEntry("");}};
-
   const TABS=[{id:"info",label:"Infos"},{id:"prep",label:"Préparation"},{id:"journal",label:"Journal"},{id:"links",label:"Liens & Tags"}];
-
   return(
     <div style={{display:"flex",flexDirection:"column",gap:0}}>
-      {/* Tab bar */}
       <div style={{display:"flex",gap:6,marginBottom:18,flexWrap:"wrap"}}>
         {TABS.map(t=><button key={t.id} className={`tab-btn${tab===t.id?" active":""}`} onClick={()=>setTab(t.id)}>{t.label}</button>)}
       </div>
-
-      {/* INFO */}
       {tab==="info"&&(
         <div style={{display:"flex",flexDirection:"column",gap:13}}>
           <div style={{display:"grid",gridTemplateColumns:"1fr",gap:11}} className="sg2">
@@ -231,48 +229,23 @@ function JobForm({initial=EMPTY_JOB,onSave,onCancel,globalTags,onNewTag}){
             <FL label="Téléphone"><input style={INP} placeholder="+33 6 …" value={f.phone} onChange={set("phone")}/></FL>
             <FL label="Salaire"><input style={INP} placeholder="45k€ brut / an" value={f.salary} onChange={set("salary")}/></FL>
           </div>
-          <FL label="Statut">
-            <select style={INP} value={f.status} onChange={set("status")}>
-              {STATUSES.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-          </FL>
-          <FL label="🔔 Date de relance">
-            <input style={INP} type="date" value={f.followUpDate} onChange={set("followUpDate")}/>
-          </FL>
-          <FL label="Notes libres">
-            <textarea style={{...INP,resize:"none",minHeight:80}} rows={3} placeholder="Informations complémentaires…" value={f.notes} onChange={set("notes")}/>
-          </FL>
+          <FL label="Statut"><select style={INP} value={f.status} onChange={set("status")}>{STATUSES.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</select></FL>
+          <FL label="🔔 Date de relance"><input style={INP} type="date" value={f.followUpDate} onChange={set("followUpDate")}/></FL>
+          <FL label="Notes libres"><textarea style={{...INP,resize:"none",minHeight:80}} rows={3} placeholder="Informations complémentaires…" value={f.notes} onChange={set("notes")}/></FL>
         </div>
       )}
-
-      {/* PREP */}
       {tab==="prep"&&(
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <div style={{padding:12,background:"#eef2ff",borderRadius:10,fontSize:12,color:"#4338ca",display:"flex",gap:8,alignItems:"flex-start"}}>
-            <I n="Prep" size={14} style={{marginTop:1,flexShrink:0}}/>
-            <span>Prépare ton entretien ici : questions possibles, recherches sur l'entreprise, ce que tu veux demander.</span>
-          </div>
-          <FL label="❓ Questions probables & mes réponses">
-            <textarea style={{...INP,resize:"none",minHeight:110}} rows={5} placeholder={"Ex :\n- Parlez-moi de vous → ...\n- Pourquoi ce poste → ..."} value={f.prep.questions} onChange={setNested("prep","questions")}/>
-          </FL>
-          <FL label="🔍 Recherches sur l'entreprise">
-            <textarea style={{...INP,resize:"none",minHeight:90}} rows={4} placeholder="Chiffres clés, actualités, culture d'entreprise, concurrents…" value={f.prep.research} onChange={setNested("prep","research")}/>
-          </FL>
-          <FL label="💬 Ce que je veux demander">
-            <textarea style={{...INP,resize:"none",minHeight:80}} rows={3} placeholder={"Ex :\n- Comment se passe l'onboarding ?\n- Quelle est la culture d'équipe ?"} value={f.prep.toAsk} onChange={setNested("prep","toAsk")}/>
-          </FL>
+          <div style={{padding:12,background:"#eef2ff",borderRadius:10,fontSize:12,color:"#4338ca",display:"flex",gap:8,alignItems:"flex-start"}}><I n="Prep" size={14} style={{marginTop:1,flexShrink:0}}/><span>Prépare ton entretien : questions, recherches, ce que tu veux demander.</span></div>
+          <FL label="❓ Questions probables & réponses"><textarea style={{...INP,resize:"none",minHeight:110}} rows={5} placeholder={"Ex :\n- Parlez-moi de vous → ...\n- Pourquoi ce poste → ..."} value={f.prep.questions} onChange={setNested("prep","questions")}/></FL>
+          <FL label="🔍 Recherches sur l'entreprise"><textarea style={{...INP,resize:"none",minHeight:90}} rows={4} placeholder="Chiffres clés, actualités, culture, concurrents…" value={f.prep.research} onChange={setNested("prep","research")}/></FL>
+          <FL label="💬 Ce que je veux demander"><textarea style={{...INP,resize:"none",minHeight:80}} rows={3} placeholder={"Ex :\n- Comment se passe l'onboarding ?\n- Quelle est la culture d'équipe ?"} value={f.prep.toAsk} onChange={setNested("prep","toAsk")}/></FL>
         </div>
       )}
-
-      {/* JOURNAL */}
       {tab==="journal"&&(
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <FL label="Nouvelle entrée">
-            <textarea style={{...INP,resize:"none",minHeight:80}} rows={3} placeholder="Note un événement, ressenti, échange téléphonique…" value={journalEntry} onChange={e=>setJEntry(e.target.value)}/>
-          </FL>
-          <button onClick={addJEntry} disabled={!journalEntry.trim()} style={{padding:"9px 16px",borderRadius:10,border:"none",background:journalEntry.trim()?"#6366f1":"#e2e8f0",color:journalEntry.trim()?"#fff":"#94a3b8",fontSize:13,fontWeight:600,cursor:journalEntry.trim()?"pointer":"default",fontFamily:"inherit",alignSelf:"flex-start"}}>
-            Ajouter au journal
-          </button>
+          <FL label="Nouvelle entrée"><textarea style={{...INP,resize:"none",minHeight:80}} rows={3} placeholder="Note un événement, ressenti, échange téléphonique…" value={journalEntry} onChange={e=>setJEntry(e.target.value)}/></FL>
+          <button onClick={addJEntry} disabled={!journalEntry.trim()} style={{padding:"9px 16px",borderRadius:10,border:"none",background:journalEntry.trim()?"#6366f1":"#e2e8f0",color:journalEntry.trim()?"#fff":"#94a3b8",fontSize:13,fontWeight:600,cursor:journalEntry.trim()?"pointer":"default",fontFamily:"inherit",alignSelf:"flex-start"}}>Ajouter au journal</button>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {(f.journal||[]).length===0&&<p style={{color:"#94a3b8",fontSize:13,textAlign:"center",padding:"20px 0"}}>Aucune entrée pour l'instant</p>}
             {(f.journal||[]).map(e=>(
@@ -284,35 +257,27 @@ function JobForm({initial=EMPTY_JOB,onSave,onCancel,globalTags,onNewTag}){
           </div>
         </div>
       )}
-
-      {/* LINKS & TAGS */}
       {tab==="links"&&(
         <div style={{display:"flex",flexDirection:"column",gap:16}}>
-          <FL label="🏷️ Tags libres">
-            <MultiSelect value={f.tags} onChange={v=>setF(p=>({...p,tags:v}))} allTags={globalTags} onNewTag={onNewTag} placeholder="Ex: Remote, Start-up, Via LinkedIn…"/>
-          </FL>
-          <FL label="🔗 Liens (offre, CV envoyé, profil LinkedIn…)">
+          <FL label="🏷️ Tags libres"><MultiSelect value={f.tags} onChange={v=>setF(p=>({...p,tags:v}))} allTags={globalTags} onNewTag={onNewTag} placeholder="Ex: Remote, Start-up, Via LinkedIn…"/></FL>
+          <FL label="🔗 Liens">
             <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:8}}>
               {(f.links||[]).map(l=>(
                 <div key={l.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0"}}>
                   <I n="Link" size={13} style={{color:"#94a3b8",flexShrink:0}}/>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:12,fontWeight:500,color:"#334155",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.label||l.url}</div>
-                    <a href={l.url} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#6366f1",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{l.url}</a>
-                  </div>
+                  <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:500,color:"#334155",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.label||l.url}</div><a href={l.url} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#6366f1",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{l.url}</a></div>
                   <button onClick={()=>removeLink(l.id)} style={{padding:4,border:"none",background:"none",cursor:"pointer",color:"#94a3b8",display:"flex"}}><I n="Trash" size={13}/></button>
                 </div>
               ))}
             </div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              <input style={{...INP,flex:1,minWidth:100}} placeholder="Libellé (ex: Offre LinkedIn)" value={newLink.label} onChange={e=>setNewLink(p=>({...p,label:e.target.value}))}/>
+              <input style={{...INP,flex:1,minWidth:100}} placeholder="Libellé" value={newLink.label} onChange={e=>setNewLink(p=>({...p,label:e.target.value}))}/>
               <input style={{...INP,flex:2,minWidth:160}} placeholder="https://…" value={newLink.url} onChange={e=>setNewLink(p=>({...p,url:e.target.value}))}/>
-              <button onClick={addLink} style={{padding:"9px 14px",borderRadius:10,border:"none",background:"#6366f1",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}><I n="Plus" size={13}/></button>
+              <button onClick={addLink} style={{padding:"9px 14px",borderRadius:10,border:"none",background:"#6366f1",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}><I n="Plus" size={13}/></button>
             </div>
           </FL>
         </div>
       )}
-
       <div style={{display:"flex",gap:10,paddingTop:18,marginTop:4,borderTop:"1px solid #f1f5f9"}}>
         <button onClick={onCancel} style={{flex:1,padding:"11px",borderRadius:12,border:"1px solid #e2e8f0",background:"#fff",color:"#475569",fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>Annuler</button>
         <button onClick={()=>{if(f.company||f.position)onSave(f);}} style={{flex:1,padding:"11px",borderRadius:12,border:"none",background:"#6366f1",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(99,102,241,0.35)"}}>Sauvegarder</button>
@@ -321,20 +286,15 @@ function JobForm({initial=EMPTY_JOB,onSave,onCancel,globalTags,onNewTag}){
   );
 }
 
-// ── Job Detail Modal ──
+// ── Job Detail ──
 function JobDetail({job,onEdit,onClose}){
-  const s=si(job.status);
   const [tab,setTab]=useState("prep");
   const TABS=[{id:"prep",label:"Préparation"},{id:"journal",label:"Journal"},{id:"links",label:"Liens & Tags"}];
   return(
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
-      {/* Header */}
       <div style={{padding:16,background:"#f8fafc",borderRadius:12,border:"1px solid #f1f5f9"}}>
         <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,marginBottom:10}}>
-          <div>
-            <div style={{fontWeight:700,fontSize:17,color:"#0f172a"}}>{job.company||"—"}</div>
-            <div style={{fontSize:13,color:"#64748b",marginTop:2}}>{job.position||"—"}</div>
-          </div>
+          <div><div style={{fontWeight:700,fontSize:17,color:"#0f172a"}}>{job.company||"—"}</div><div style={{fontSize:13,color:"#64748b",marginTop:2}}>{job.position||"—"}</div></div>
           <StatusBadge id={job.status}/>
         </div>
         <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
@@ -344,56 +304,27 @@ function JobDetail({job,onEdit,onClose}){
         </div>
         {(job.tags||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:8}}>{job.tags.map(t=><TagPill key={t} label={t} color="slate"/>)}</div>}
       </div>
-
-      {/* Tabs */}
-      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-        {TABS.map(t=><button key={t.id} className={`tab-btn${tab===t.id?" active":""}`} onClick={()=>setTab(t.id)}>{t.label}</button>)}
-      </div>
-
+      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{TABS.map(t=><button key={t.id} className={`tab-btn${tab===t.id?" active":""}`} onClick={()=>setTab(t.id)}>{t.label}</button>)}</div>
       {tab==="prep"&&(
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
-          {[["❓ Questions & réponses",(job.prep||{}).questions],["🔍 Recherches entreprise",(job.prep||{}).research],["💬 À demander",(job.prep||{}).toAsk]].map(([label,val])=>(
-            val?<div key={label}>
-              <div style={{fontSize:11,fontWeight:600,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>{label}</div>
-              <div style={{padding:"10px 14px",background:"#f8fafc",borderRadius:10,fontSize:13,color:"#334155",whiteSpace:"pre-wrap",border:"1px solid #f1f5f9"}}>{val}</div>
-            </div>:null
-          ))}
+          {[["❓ Questions & réponses",(job.prep||{}).questions],["🔍 Recherches entreprise",(job.prep||{}).research],["💬 À demander",(job.prep||{}).toAsk]].map(([label,val])=>val?<div key={label}><div style={{fontSize:11,fontWeight:600,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>{label}</div><div style={{padding:"10px 14px",background:"#f8fafc",borderRadius:10,fontSize:13,color:"#334155",whiteSpace:"pre-wrap",border:"1px solid #f1f5f9"}}>{val}</div></div>:null)}
           {!((job.prep||{}).questions||(job.prep||{}).research||(job.prep||{}).toAsk)&&<p style={{color:"#94a3b8",fontSize:13,textAlign:"center",padding:"20px 0"}}>Aucune préparation renseignée</p>}
         </div>
       )}
-
       {tab==="journal"&&(
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
           {job.notes&&<div style={{padding:"10px 14px",background:"#fffbeb",borderRadius:10,border:"1px solid #fde68a",fontSize:13,color:"#78350f"}}>📝 {job.notes}</div>}
           {(job.journal||[]).length===0&&<p style={{color:"#94a3b8",fontSize:13,textAlign:"center",padding:"20px 0"}}>Aucune entrée journal</p>}
-          {(job.journal||[]).map(e=>(
-            <div key={e.id} style={{padding:"10px 14px",background:"#f8fafc",borderRadius:10,border:"1px solid #f1f5f9"}}>
-              <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>{fmtDate(e.date)}</div>
-              <div style={{fontSize:13,color:"#334155",whiteSpace:"pre-wrap"}}>{e.text}</div>
-            </div>
-          ))}
+          {(job.journal||[]).map(e=><div key={e.id} style={{padding:"10px 14px",background:"#f8fafc",borderRadius:10,border:"1px solid #f1f5f9"}}><div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>{fmtDate(e.date)}</div><div style={{fontSize:13,color:"#334155",whiteSpace:"pre-wrap"}}>{e.text}</div></div>)}
         </div>
       )}
-
       {tab==="links"&&(
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
           {(job.links||[]).length===0&&<p style={{color:"#94a3b8",fontSize:13,textAlign:"center",padding:"20px 0"}}>Aucun lien renseigné</p>}
-          {(job.links||[]).map(l=>(
-            <a key={l.id} href={l.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#f8fafc",borderRadius:10,border:"1px solid #e2e8f0",textDecoration:"none"}}>
-              <I n="Link" size={14} col="#6366f1"/>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#334155"}}>{l.label||l.url}</div>
-                <div style={{fontSize:11,color:"#6366f1",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.url}</div>
-              </div>
-              <I n="ChevR" size={14} col="#94a3b8"/>
-            </a>
-          ))}
+          {(job.links||[]).map(l=><a key={l.id} href={l.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#f8fafc",borderRadius:10,border:"1px solid #e2e8f0",textDecoration:"none"}}><I n="Link" size={14} col="#6366f1"/><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500,color:"#334155"}}>{l.label||l.url}</div><div style={{fontSize:11,color:"#6366f1",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.url}</div></div><I n="ChevR" size={14} col="#94a3b8"/></a>)}
         </div>
       )}
-
-      <button onClick={onEdit} style={{width:"100%",padding:"11px",borderRadius:12,border:"none",background:"#6366f1",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginTop:4}}>
-        <I n="Edit" size={14} style={{marginRight:6}}/> Modifier cette candidature
-      </button>
+      <button onClick={onEdit} style={{width:"100%",padding:"11px",borderRadius:12,border:"none",background:"#6366f1",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginTop:4}}><I n="Edit" size={14} style={{marginRight:6}}/> Modifier</button>
     </div>
   );
 }
@@ -402,26 +333,19 @@ function JobDetail({job,onEdit,onClose}){
 function KCard({job,onView,onStatusChange}){
   const next=STATUSES[STATUSES.findIndex(x=>x.id===job.status)+1];
   const d=job.followUpDate?daysDiff(job.followUpDate):null;
-  const alert=d!==null&&d<=3;
   return(
     <div className="card" style={{padding:14,display:"flex",flexDirection:"column",gap:8,cursor:"pointer"}} onClick={()=>onView(job)}>
       <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
-        <div style={{minWidth:0}}>
-          <div style={{fontWeight:600,color:"#0f172a",fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{job.company||"—"}</div>
-          <div style={{fontSize:12,color:"#64748b",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{job.position||"Poste non défini"}</div>
-        </div>
-        {alert&&<I n="Bell" size={14} col="#f59e0b"/>}
+        <div style={{minWidth:0}}><div style={{fontWeight:600,color:"#0f172a",fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{job.company||"—"}</div><div style={{fontSize:12,color:"#64748b",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{job.position||"—"}</div></div>
+        {d!==null&&d<=3&&<I n="Bell" size={14} col="#f59e0b"/>}
       </div>
       {(job.tags||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4}}>{job.tags.slice(0,2).map(t=><TagPill key={t} label={t} color="slate"/>)}{job.tags.length>2&&<span style={{fontSize:11,color:"#94a3b8",alignSelf:"center"}}>+{job.tags.length-2}</span>}</div>}
       {job.salary&&<div style={{fontSize:11,color:"#94a3b8",display:"flex",alignItems:"center",gap:4}}><I n="Dollar" size={11}/>{job.salary}</div>}
-      {next&&<button onClick={e=>{e.stopPropagation();onStatusChange(job.id,next.id);}} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 10px",borderRadius:8,border:`1px solid ${next.badgeBorder}`,background:next.badgeBg,color:next.badgeText,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",width:"100%"}}>
-        <span>→ {next.label}</span><I n="ChevR" size={12}/>
-      </button>}
+      {next&&<button onClick={e=>{e.stopPropagation();onStatusChange(job.id,next.id);}} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 10px",borderRadius:8,border:`1px solid ${next.badgeBorder}`,background:next.badgeBg,color:next.badgeText,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",width:"100%"}}><span>→ {next.label}</span><I n="ChevR" size={12}/></button>}
     </div>
   );
 }
 
-// ── Kanban ──
 function KanbanView({jobs,onView,onStatusChange}){
   return(
     <div className="hs" style={{display:"flex",gap:14,overflowX:"auto",paddingBottom:16,paddingTop:4}}>
@@ -429,17 +353,8 @@ function KanbanView({jobs,onView,onStatusChange}){
         const cols=jobs.filter(j=>j.status===st.id);
         return(
           <div key={st.id} style={{flexShrink:0,width:265,display:"flex",flexDirection:"column",gap:10}}>
-            <div className="card" style={{overflow:"hidden"}}>
-              <div style={{height:4,background:st.bar}}/>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 12px"}}>
-                <span style={{fontSize:12,fontWeight:600,color:"#334155"}}>{st.label}</span>
-                <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:999,background:st.badgeBg,color:st.badgeText}}>{cols.length}</span>
-              </div>
-            </div>
-            {cols.length===0
-              ?<div style={{border:"2px dashed #e2e8f0",borderRadius:12,padding:"20px 0",textAlign:"center",color:"#94a3b8",fontSize:11}}>Vide</div>
-              :cols.map(j=><KCard key={j.id} job={j} onView={onView} onStatusChange={onStatusChange}/>)
-            }
+            <div className="card" style={{overflow:"hidden"}}><div style={{height:4,background:st.bar}}/><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 12px"}}><span style={{fontSize:12,fontWeight:600,color:"#334155"}}>{st.label}</span><span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:999,background:st.badgeBg,color:st.badgeText}}>{cols.length}</span></div></div>
+            {cols.length===0?<div style={{border:"2px dashed #e2e8f0",borderRadius:12,padding:"20px 0",textAlign:"center",color:"#94a3b8",fontSize:11}}>Vide</div>:cols.map(j=><KCard key={j.id} job={j} onView={onView} onStatusChange={onStatusChange}/>)}
           </div>
         );
       })}
@@ -447,7 +362,6 @@ function KanbanView({jobs,onView,onStatusChange}){
   );
 }
 
-// ── List View ──
 function ListView({jobs,onView,onStatusChange}){
   const [sort,setSort]=useState({key:"company",dir:"asc"});
   const sorted=useMemo(()=>[...jobs].sort((a,b)=>{const va=(a[sort.key]||"").toLowerCase(),vb=(b[sort.key]||"").toLowerCase();return sort.dir==="asc"?va.localeCompare(vb):vb.localeCompare(va);}),[jobs,sort]);
@@ -460,56 +374,46 @@ function ListView({jobs,onView,onStatusChange}){
           <thead style={{background:"#f8fafc",borderBottom:"1px solid #f1f5f9"}}>
             <tr>
               {[["company","Entreprise"],["position","Poste"],["salary","Salaire"]].map(([k,l])=>(
-                <th key={k} onClick={()=>tog(k)} style={{textAlign:"left",padding:"11px 16px",fontSize:11,fontWeight:600,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:5}}>{l}<Arr k={k}/></div>
-                </th>
+                <th key={k} onClick={()=>tog(k)} style={{textAlign:"left",padding:"11px 16px",fontSize:11,fontWeight:600,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}><div style={{display:"flex",alignItems:"center",gap:5}}>{l}<Arr k={k}/></div></th>
               ))}
               <th style={{textAlign:"left",padding:"11px 16px",fontSize:11,fontWeight:600,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em"}}>Statut</th>
               <th style={{textAlign:"left",padding:"11px 16px",fontSize:11,fontWeight:600,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em"}}>Tags</th>
               <th style={{textAlign:"left",padding:"11px 16px",fontSize:11,fontWeight:600,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em"}}>Relance</th>
-              <th style={{width:60}}/>
+              <th style={{width:40}}/>
             </tr>
           </thead>
           <tbody>
-            {sorted.map((job,i)=>{
-              const d=job.followUpDate?daysDiff(job.followUpDate):null;
-              return(
-                <tr key={job.id} style={{borderTop:i>0?"1px solid #f8fafc":"none",cursor:"pointer"}} onClick={()=>onView(job)} onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
-                  <td style={{padding:"11px 16px",fontWeight:600,color:"#0f172a",fontSize:13}}>{job.company||"—"}</td>
-                  <td style={{padding:"11px 16px",color:"#475569",fontSize:13}}>{job.position||"—"}</td>
-                  <td style={{padding:"11px 16px",color:"#64748b",fontSize:13,whiteSpace:"nowrap"}}>{job.salary||"—"}</td>
-                  <td style={{padding:"11px 16px"}}><StatusBadge id={job.status}/></td>
-                  <td style={{padding:"11px 16px"}}><div style={{display:"flex",flexWrap:"wrap",gap:4}}>{(job.tags||[]).map(t=><TagPill key={t} label={t} color="slate"/>)}</div></td>
-                  <td style={{padding:"11px 16px"}}>{d!==null&&d<=3&&<I n="Bell" size={14} col="#f59e0b"/>}{job.followUpDate&&<span style={{fontSize:11,color:"#94a3b8",marginLeft:4}}>{fmtDate(job.followUpDate)}</span>}</td>
-                  <td style={{padding:"11px 16px"}}><I n="ChevR" size={15} col="#cbd5e1"/></td>
-                </tr>
-              );
-            })}
+            {sorted.map((job,i)=>{const d=job.followUpDate?daysDiff(job.followUpDate):null;return(
+              <tr key={job.id} style={{borderTop:i>0?"1px solid #f8fafc":"none",cursor:"pointer"}} onClick={()=>onView(job)} onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+                <td style={{padding:"11px 16px",fontWeight:600,color:"#0f172a",fontSize:13}}>{job.company||"—"}</td>
+                <td style={{padding:"11px 16px",color:"#475569",fontSize:13}}>{job.position||"—"}</td>
+                <td style={{padding:"11px 16px",color:"#64748b",fontSize:13,whiteSpace:"nowrap"}}>{job.salary||"—"}</td>
+                <td style={{padding:"11px 16px"}}><StatusBadge id={job.status}/></td>
+                <td style={{padding:"11px 16px"}}><div style={{display:"flex",flexWrap:"wrap",gap:4}}>{(job.tags||[]).map(t=><TagPill key={t} label={t} color="slate"/>)}</div></td>
+                <td style={{padding:"11px 16px"}}>{d!==null&&d<=3&&<FollowUpBadge date={job.followUpDate}/>}{job.followUpDate&&(d===null||d>3)&&<span style={{fontSize:11,color:"#94a3b8"}}>{fmtDate(job.followUpDate)}</span>}</td>
+                <td style={{padding:"11px 16px"}}><I n="ChevR" size={15} col="#cbd5e1"/></td>
+              </tr>
+            );})}
           </tbody>
         </table>
       </div>
-      {/* Mobile */}
       <div className="mob">
-        {sorted.map((job,i)=>{
-          const next=STATUSES[STATUSES.findIndex(x=>x.id===job.status)+1];
-          return(
-            <div key={job.id} onClick={()=>onView(job)} style={{padding:"13px 16px",borderTop:i>0?"1px solid #f8fafc":"none",cursor:"pointer"}}>
-              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,marginBottom:6}}>
-                <div><div style={{fontWeight:600,color:"#0f172a",fontSize:13}}>{job.company||"—"}</div><div style={{fontSize:11,color:"#64748b",marginTop:2}}>{job.position||"—"}</div></div>
-                <StatusBadge id={job.status}/>
-              </div>
-              {(job.tags||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>{job.tags.map(t=><TagPill key={t} label={t} color="slate"/>)}</div>}
-              <FollowUpBadge date={job.followUpDate}/>
+        {sorted.map((job,i)=>(
+          <div key={job.id} onClick={()=>onView(job)} style={{padding:"13px 16px",borderTop:i>0?"1px solid #f8fafc":"none",cursor:"pointer"}}>
+            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,marginBottom:6}}>
+              <div><div style={{fontWeight:600,color:"#0f172a",fontSize:13}}>{job.company||"—"}</div><div style={{fontSize:11,color:"#64748b",marginTop:2}}>{job.position||"—"}</div></div>
+              <StatusBadge id={job.status}/>
             </div>
-          );
-        })}
+            {(job.tags||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>{job.tags.map(t=><TagPill key={t} label={t} color="slate"/>)}</div>}
+            <FollowUpBadge date={job.followUpDate}/>
+          </div>
+        ))}
       </div>
       {sorted.length===0&&<div style={{padding:"50px 0",textAlign:"center"}}><I n="Brief" size={36} col="#cbd5e1"/><div style={{color:"#64748b",fontSize:14,fontWeight:500,marginTop:10}}>Aucune candidature</div></div>}
     </div>
   );
 }
 
-// ── Timeline View ──
 function TimelineView({jobs}){
   const events=useMemo(()=>{
     const evts=[];
@@ -525,18 +429,14 @@ function TimelineView({jobs}){
   return(
     <div style={{display:"flex",flexDirection:"column",gap:0,position:"relative",paddingLeft:28}}>
       <div style={{position:"absolute",left:9,top:0,bottom:0,width:2,background:"#e2e8f0",borderRadius:1}}/>
-      {events.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"#94a3b8",fontSize:13}}>Aucun événement à afficher</div>}
+      {events.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"#94a3b8",fontSize:13}}>Aucun événement</div>}
       {events.map((ev,i)=>(
         <div key={i} style={{position:"relative",marginBottom:14}}>
           <div style={{position:"absolute",left:-24,top:4,width:10,height:10,borderRadius:999,background:colors[ev.type],border:"2px solid #fff",boxShadow:"0 0 0 2px "+colors[ev.type]}}/>
           <div className="card" style={{padding:"10px 14px"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:4}}>
-              <span style={{fontSize:11,fontWeight:600,color:colors[ev.type],textTransform:"uppercase",letterSpacing:"0.05em"}}>{labels[ev.type]}</span>
-              <span style={{fontSize:11,color:"#94a3b8"}}>{fmtDate(ev.date)}</span>
-            </div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:4}}><span style={{fontSize:11,fontWeight:600,color:colors[ev.type],textTransform:"uppercase",letterSpacing:"0.05em"}}>{labels[ev.type]}</span><span style={{fontSize:11,color:"#94a3b8"}}>{fmtDate(ev.date)}</span></div>
             <div style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>{ev.job.company||"—"} · {ev.job.position||"—"}</div>
             {ev.text&&<div style={{fontSize:12,color:"#64748b",marginTop:4,whiteSpace:"pre-wrap"}}>{ev.text}</div>}
-            {ev.type==="followup"&&ev.future&&<div style={{marginTop:4}}><FollowUpBadge date={ev.job.followUpDate}/></div>}
           </div>
         </div>
       ))}
@@ -544,7 +444,6 @@ function TimelineView({jobs}){
   );
 }
 
-// ── Compare View ──
 function CompareView({jobs}){
   const [sel,setSel]=useState([null,null]);
   const set=(i,id)=>setSel(p=>{const n=[...p];n[i]=id;return n;});
@@ -554,43 +453,24 @@ function CompareView({jobs}){
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         {[0,1].map(i=>(
-          <div key={i}>
-            <label style={{fontSize:11,fontWeight:600,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.06em",display:"block",marginBottom:5}}>Offre {i+1}</label>
-            <select style={INP} value={sel[i]||""} onChange={e=>set(i,e.target.value)}>
-              <option value="">— Choisir —</option>
-              {jobs.map(j=><option key={j.id} value={j.id}>{j.company} · {j.position}</option>)}
-            </select>
-          </div>
+          <div key={i}><label style={{fontSize:11,fontWeight:600,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.06em",display:"block",marginBottom:5}}>Offre {i+1}</label>
+          <select style={INP} value={sel[i]||""} onChange={e=>set(i,e.target.value)}><option value="">— Choisir —</option>{jobs.map(j=><option key={j.id} value={j.id}>{j.company} · {j.position}</option>)}</select></div>
         ))}
       </div>
       {selected[0]&&selected[1]&&(
         <div className="card" style={{overflow:"hidden"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead style={{background:"#f8fafc",borderBottom:"1px solid #f1f5f9"}}>
-              <tr>
-                <th style={{padding:"10px 14px",fontSize:11,fontWeight:600,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",textAlign:"left",width:"25%"}}>Critère</th>
-                {selected.map((j,i)=><th key={i} style={{padding:"10px 14px",fontSize:12,fontWeight:700,color:"#6366f1",textAlign:"left"}}>{j.company}</th>)}
-              </tr>
+              <tr><th style={{padding:"10px 14px",fontSize:11,fontWeight:600,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",textAlign:"left",width:"25%"}}>Critère</th>{selected.map((j,i)=><th key={i} style={{padding:"10px 14px",fontSize:12,fontWeight:700,color:"#6366f1",textAlign:"left"}}>{j.company}</th>)}</tr>
             </thead>
             <tbody>
               {FIELDS.map(([label,key],ri)=>(
                 <tr key={key} style={{borderTop:"1px solid #f8fafc",background:ri%2===0?"#fff":"#fafafa"}}>
                   <td style={{padding:"10px 14px",fontSize:12,fontWeight:600,color:"#64748b"}}>{label}</td>
-                  {selected.map((j,i)=>(
-                    <td key={i} style={{padding:"10px 14px",fontSize:13,color:"#334155"}}>
-                      {key==="status"?<StatusBadge id={j[key]}/>:(j[key]||<span style={{color:"#cbd5e1"}}>—</span>)}
-                    </td>
-                  ))}
+                  {selected.map((j,i)=><td key={i} style={{padding:"10px 14px",fontSize:13,color:"#334155"}}>{key==="status"?<StatusBadge id={j[key]}/>:(j[key]||<span style={{color:"#cbd5e1"}}>—</span>)}</td>)}
                 </tr>
               ))}
-              <tr style={{borderTop:"1px solid #f1f5f9"}}>
-                <td style={{padding:"10px 14px",fontSize:12,fontWeight:600,color:"#64748b"}}>Tags</td>
-                {selected.map((j,i)=><td key={i} style={{padding:"10px 14px"}}><div style={{display:"flex",flexWrap:"wrap",gap:4}}>{(j.tags||[]).map(t=><TagPill key={t} label={t} color="slate"/>)}</div></td>)}
-              </tr>
-              <tr style={{borderTop:"1px solid #f1f5f9"}}>
-                <td style={{padding:"10px 14px",fontSize:12,fontWeight:600,color:"#64748b"}}>Relance</td>
-                {selected.map((j,i)=><td key={i} style={{padding:"10px 14px",fontSize:13,color:"#64748b"}}>{j.followUpDate?fmtDate(j.followUpDate):"—"}</td>)}
-              </tr>
+              <tr style={{borderTop:"1px solid #f1f5f9"}}><td style={{padding:"10px 14px",fontSize:12,fontWeight:600,color:"#64748b"}}>Tags</td>{selected.map((j,i)=><td key={i} style={{padding:"10px 14px"}}><div style={{display:"flex",flexWrap:"wrap",gap:4}}>{(j.tags||[]).map(t=><TagPill key={t} label={t} color="slate"/>)}</div></td>)}</tr>
             </tbody>
           </table>
         </div>
@@ -600,23 +480,17 @@ function CompareView({jobs}){
   );
 }
 
-// ── Stats View ──
 function StatsView({jobs}){
   const total=jobs.length;
   const by=Object.fromEntries(STATUSES.map(s=>[s.id,jobs.filter(j=>j.status===s.id).length]));
   const intRate=total?Math.round(((by.interview||0)+(by.offer||0))/total*100):0;
   const offRate=total?Math.round((by.offer||0)/total*100):0;
-  const alerts=jobs.filter(j=>j.followUpDate&&daysDiff(j.followUpDate)<=3&&daysDiff(j.followUpDate)!==null);
+  const alerts=jobs.filter(j=>j.followUpDate&&daysDiff(j.followUpDate)!==null&&daysDiff(j.followUpDate)<=0);
   return(
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
-      {alerts.length>0&&(
-        <div style={{padding:"12px 16px",background:"#fffbeb",borderRadius:12,border:"1px solid #fde68a",display:"flex",alignItems:"center",gap:10}}>
-          <I n="Alert" size={18} col="#f59e0b"/>
-          <span style={{fontSize:13,color:"#78350f",fontWeight:500}}>{alerts.length} relance{alerts.length>1?"s":""} à effectuer bientôt</span>
-        </div>
-      )}
+      {alerts.length>0&&<div style={{padding:"12px 16px",background:"#fffbeb",borderRadius:12,border:"1px solid #fde68a",display:"flex",alignItems:"center",gap:10}}><I n="Alert" size={18} col="#f59e0b"/><span style={{fontSize:13,color:"#78350f",fontWeight:500}}>{alerts.length} relance{alerts.length>1?"s":""} à effectuer</span></div>}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        {[["Brief","Candidatures",total,"au total","#6366f1"],["Bell","Relances urgentes",alerts.length,"≤ 3 jours","#f59e0b"],["Chart","Taux entretien",`${intRate}%`,"des candidatures","#3b82f6"],["Prep","Offres reçues",by.offer||0,`${offRate}% réussite`,"#10b981"]].map(([icon,label,val,sub,bg])=>(
+        {[["Brief","Candidatures",total,"au total","#6366f1"],["Bell","Relances urgentes",alerts.length,"en retard","#f59e0b"],["Chart","Taux entretien",`${intRate}%`,"des candidatures","#3b82f6"],["Prep","Offres reçues",by.offer||0,`${offRate}% réussite`,"#10b981"]].map(([icon,label,val,sub,bg])=>(
           <div key={label} className="card" style={{padding:16,display:"flex",alignItems:"center",gap:12}}>
             <div style={{width:42,height:42,borderRadius:12,background:bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"#fff"}}><I n={icon} size={18}/></div>
             <div><div style={{fontSize:20,fontWeight:700,color:"#0f172a"}}>{val}</div><div style={{fontSize:11,fontWeight:500,color:"#475569",marginTop:1}}>{label}</div><div style={{fontSize:10,color:"#94a3b8"}}>{sub}</div></div>
@@ -627,48 +501,11 @@ function StatsView({jobs}){
         <div style={{fontWeight:600,color:"#0f172a",fontSize:13,marginBottom:12,display:"flex",alignItems:"center",gap:6}}><I n="Chart" size={14} col="#6366f1"/> Entonnoir</div>
         {STATUSES.map(s=>{const c=by[s.id]||0;const p=total?Math.round(c/total*100):0;return(
           <div key={s.id} style={{marginBottom:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-              <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{width:8,height:8,borderRadius:999,background:s.dot,display:"inline-block"}}/><span style={{fontSize:12,fontWeight:500,color:"#334155"}}>{s.label}</span></div>
-              <span style={{fontSize:11,fontWeight:700,padding:"1px 7px",borderRadius:999,background:s.badgeBg,color:s.badgeText}}>{c}</span>
-            </div>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{width:8,height:8,borderRadius:999,background:s.dot,display:"inline-block"}}/><span style={{fontSize:12,fontWeight:500,color:"#334155"}}>{s.label}</span></div><span style={{fontSize:11,fontWeight:700,padding:"1px 7px",borderRadius:999,background:s.badgeBg,color:s.badgeText}}>{c}</span></div>
             <div style={{height:6,background:"#f1f5f9",borderRadius:999,overflow:"hidden"}}><div style={{height:"100%",width:`${p}%`,background:s.dot,borderRadius:999,transition:"width 0.6s"}}/></div>
           </div>
         );})}
       </div>
-      {alerts.length>0&&(
-        <div className="card" style={{padding:16}}>
-          <div style={{fontWeight:600,color:"#0f172a",fontSize:13,marginBottom:10,display:"flex",alignItems:"center",gap:6}}><I n="Bell" size={14} col="#f59e0b"/> Relances à faire</div>
-          {alerts.map(j=>(
-            <div key={j.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #f8fafc"}}>
-              <div><div style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>{j.company}</div><div style={{fontSize:11,color:"#64748b"}}>{j.position}</div></div>
-              <FollowUpBadge date={j.followUpDate}/>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Share Modal ──
-function ShareModal({profileName,onClose}){
-  const url=window.location.href;
-  const [copied,setCopied]=useState(false);
-  const copy=()=>{navigator.clipboard.writeText(url).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});};
-  return(
-    <div style={{display:"flex",flexDirection:"column",gap:14}}>
-      <div style={{padding:14,background:"#f0fdf4",borderRadius:10,border:"1px solid #bbf7d0",fontSize:13,color:"#166534"}}>
-        ⚠️ Cette app utilise le LocalStorage : chaque appareil/navigateur a ses propres données. Le lien donne accès à la même URL mais pas aux mêmes données.
-      </div>
-      <FL label="Lien de l'application">
-        <div style={{display:"flex",gap:8}}>
-          <input style={{...INP,flex:1}} value={url} readOnly/>
-          <button onClick={copy} style={{padding:"9px 14px",borderRadius:10,border:"none",background:copied?"#10b981":"#6366f1",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6}}>
-            <I n={copied?"Check":"Copy"} size={13}/>{copied?"Copié !":"Copier"}
-          </button>
-        </div>
-      </FL>
-      <p style={{fontSize:12,color:"#64748b",margin:0}}>Partage ce lien à {profileName} ou à un proche pour qu'ils accèdent à l'application.</p>
     </div>
   );
 }
@@ -678,26 +515,17 @@ function ProfileScreen({onSelect}){
   return(
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#eef2ff 0%,#f8fafc 50%,#fdf2f8 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{textAlign:"center",marginBottom:40}}>
-        <div style={{width:56,height:56,borderRadius:16,background:"#6366f1",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",boxShadow:"0 4px 20px rgba(99,102,241,0.4)"}}>
-          <I n="Brief" size={26} col="#fff"/>
-        </div>
+        <div style={{width:56,height:56,borderRadius:16,background:"#6366f1",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",boxShadow:"0 4px 20px rgba(99,102,241,0.4)"}}><I n="Brief" size={26} col="#fff"/></div>
         <h1 style={{margin:0,fontSize:26,fontWeight:800,color:"#0f172a"}}>JobTracker</h1>
         <p style={{margin:"8px 0 0",color:"#64748b",fontSize:14}}>Qui postule aujourd'hui ?</p>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:8}}><I n="Cloud" size={13} col="#10b981"/><span style={{fontSize:11,color:"#10b981",fontWeight:500}}>Synchronisation Firebase activée</span></div>
       </div>
       <div style={{display:"flex",gap:16,flexWrap:"wrap",justifyContent:"center"}}>
         {PROFILES.map(p=>(
-          <button key={p.id} onClick={()=>onSelect(p)} style={{
-            display:"flex",flexDirection:"column",alignItems:"center",gap:12,
-            padding:"28px 36px",borderRadius:20,border:`2px solid ${p.color}20`,
-            background:"#fff",cursor:"pointer",fontFamily:"inherit",
-            boxShadow:"0 4px 20px rgba(0,0,0,0.08)",transition:"all 0.2s",
-            minWidth:140
-          }}
-          onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-4px)";e.currentTarget.style.boxShadow=`0 8px 30px ${p.color}30`;}}
-          onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="0 4px 20px rgba(0,0,0,0.08)";}}>
-            <div style={{width:60,height:60,borderRadius:999,background:p.bg,border:`3px solid ${p.color}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:800,color:p.color}}>
-              {p.avatar}
-            </div>
+          <button key={p.id} onClick={()=>onSelect(p)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12,padding:"28px 36px",borderRadius:20,border:`2px solid ${p.color}20`,background:"#fff",cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 20px rgba(0,0,0,0.08)",transition:"all 0.2s",minWidth:140}}
+            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-4px)";e.currentTarget.style.boxShadow=`0 8px 30px ${p.color}30`;}}
+            onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="0 4px 20px rgba(0,0,0,0.08)";}}>
+            <div style={{width:60,height:60,borderRadius:999,background:p.bg,border:`3px solid ${p.color}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:800,color:p.color}}>{p.avatar}</div>
             <span style={{fontSize:16,fontWeight:700,color:"#0f172a"}}>{p.name}</span>
           </button>
         ))}
@@ -708,43 +536,109 @@ function ProfileScreen({onSelect}){
 
 // ── Main App ──
 const NAV=[
-  {id:"kanban",  label:"Kanban",   icon:"Kanban"},
-  {id:"list",    label:"Tableau",  icon:"List"},
-  {id:"timeline",label:"Timeline", icon:"Timeline"},
-  {id:"compare", label:"Comparer", icon:"Compare"},
-  {id:"stats",   label:"Stats",    icon:"Chart"},
+  {id:"kanban",label:"Kanban",icon:"Kanban"},
+  {id:"list",label:"Tableau",icon:"List"},
+  {id:"timeline",label:"Timeline",icon:"Timeline"},
+  {id:"compare",label:"Comparer",icon:"Compare"},
+  {id:"stats",label:"Stats",icon:"Chart"},
 ];
 
 function MainApp({profile,onLogout}){
   const pid=profile.id;
-  const [jobs,setJobs]=useState(()=>loadLS(pid,"jobs")||[]);
-  const [tags,setTags]=useState(()=>loadLS(pid,"tags")||[]);
+  const [jobs,setJobs]=useState([]);
+  const [tags,setTags]=useState([]);
   const [view,setView]=useState("kanban");
   const [search,setSearch]=useState("");
-  const [modal,setModal]=useState(null); // null | "add" | "edit" | "view" | "share"
+  const [modal,setModal]=useState(null);
   const [activeJob,setActiveJob]=useState(null);
+  const [syncing,setSyncing]=useState(false);
+  const [loading,setLoading]=useState(true);
+  const [fbReady,setFbReady]=useState(!!window.__fbReady);
 
-  useEffect(()=>saveLS(pid,"jobs",jobs),[jobs,pid]);
-  useEffect(()=>saveLS(pid,"tags",tags),[tags,pid]);
+  // Wait for Firebase
+  useEffect(()=>{
+    if(window.__fbReady){setFbReady(true);return;}
+    const h=()=>setFbReady(true);
+    window.addEventListener("firebase-ready",h);
+    return()=>window.removeEventListener("firebase-ready",h);
+  },[]);
 
-  const addTag=t=>{if(!tags.includes(t))setTags(p=>[...p,t]);};
+  // Realtime listener for jobs
+  useEffect(()=>{
+    if(!fbReady)return;
+    const db=getDB();
+    const col=fbCollection(db,`profiles/${pid}/jobs`);
+    const unsub=fbOnSnapshot(col,snap=>{
+      const data=snap.docs.map(d=>({id:d.id,...d.data()}));
+      setJobs(data);setLoading(false);
+    },err=>{console.error(err);setLoading(false);});
+    return()=>unsub();
+  },[pid,fbReady]);
+
+  // Realtime listener for tags
+  useEffect(()=>{
+    if(!fbReady)return;
+    const db=getDB();
+    const col=fbCollection(db,`profiles/${pid}/meta`);
+    const unsub=fbOnSnapshot(col,snap=>{
+      const doc=snap.docs.find(d=>d.id==="tags");
+      if(doc)setTags(doc.data().list||[]);
+    });
+    return()=>unsub();
+  },[pid,fbReady]);
+
+  const saveJob=async(f)=>{
+    if(!fbReady)return;
+    setSyncing(true);
+    try{
+      const db=getDB();
+      const isNew=modal==="add";
+      const jobId=isNew?uid():(activeJob?.id||uid());
+      const data={...f,updatedAt:Date.now(),...(isNew?{createdAt:Date.now()}:{})};
+      await fbSetDoc(fbDoc(db,`profiles/${pid}/jobs`,jobId),data);
+    }finally{setSyncing(false);setModal(null);setActiveJob(null);}
+  };
+
+  const delJob=async(id)=>{
+    if(!window.confirm("Supprimer cette candidature ?"))return;
+    if(!fbReady)return;
+    setSyncing(true);
+    try{const db=getDB();await fbDeleteDoc(fbDoc(db,`profiles/${pid}/jobs`,id));}
+    finally{setSyncing(false);}
+  };
+
+  const chgSt=async(id,status)=>{
+    if(!fbReady)return;
+    setSyncing(true);
+    try{const db=getDB();const job=jobs.find(j=>j.id===id);if(job)await fbSetDoc(fbDoc(db,`profiles/${pid}/jobs`,id),{...job,status,updatedAt:Date.now()});}
+    finally{setSyncing(false);}
+  };
+
+  const addTag=async(tag)=>{
+    if(!fbReady||tags.includes(tag))return;
+    const newTags=[...tags,tag];
+    setTags(newTags);
+    const db=getDB();
+    await fbSetDoc(fbDoc(db,`profiles/${pid}/meta`,"tags"),{list:newTags});
+  };
+
   const filtered=useMemo(()=>{
     if(!search.trim())return jobs;
     const q=search.toLowerCase();
-    return jobs.filter(j=>j.company.toLowerCase().includes(q)||j.position.toLowerCase().includes(q));
+    return jobs.filter(j=>(j.company||"").toLowerCase().includes(q)||(j.position||"").toLowerCase().includes(q));
   },[jobs,search]);
 
-  const alertCount=jobs.filter(j=>j.followUpDate&&daysDiff(j.followUpDate)<=0).length;
+  const alertCount=jobs.filter(j=>j.followUpDate&&daysDiff(j.followUpDate)!==null&&daysDiff(j.followUpDate)<=0).length;
 
   const openView=j=>{setActiveJob(j);setModal("view");};
   const openEdit=j=>{setActiveJob(j);setModal("edit");};
-  const saveJob=f=>{
-    if(modal==="add")setJobs(p=>[{...f,id:uid(),createdAt:Date.now()},...p]);
-    else setJobs(p=>p.map(x=>x.id===activeJob.id?{...x,...f}:x));
-    setModal(null);setActiveJob(null);
-  };
-  const delJob=id=>{if(window.confirm("Supprimer ?"))setJobs(p=>p.filter(x=>x.id!==id));};
-  const chgSt=(id,status)=>setJobs(p=>p.map(x=>x.id===id?{...x,status}:x));
+
+  if(loading)return(
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,background:"#f8fafc"}}>
+      <div style={{width:40,height:40,borderRadius:999,border:"3px solid #e2e8f0",borderTopColor:"#6366f1"}} className="spin"/>
+      <div style={{fontSize:14,color:"#64748b",fontWeight:500}}>Chargement de tes candidatures…</div>
+    </div>
+  );
 
   return(
     <div style={{minHeight:"100vh",background:"#f8fafc"}}>
@@ -756,11 +650,11 @@ function MainApp({profile,onLogout}){
             <div><div style={{fontWeight:700,fontSize:13,color:"#fff"}}>JobTracker</div><div style={{fontSize:10,color:"#64748b"}}>Mes candidatures</div></div>
           </div>
         </div>
-        {/* Profile chip */}
-        <div style={{padding:"12px 16px",borderBottom:"1px solid #1e293b",display:"flex",alignItems:"center",gap:8}}>
+        <div style={{padding:"10px 16px",borderBottom:"1px solid #1e293b",display:"flex",alignItems:"center",gap:8}}>
           <div style={{width:28,height:28,borderRadius:999,background:profile.bg,border:`2px solid ${profile.color}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:profile.color,flexShrink:0}}>{profile.avatar}</div>
           <span style={{fontSize:13,fontWeight:600,color:"#e2e8f0",flex:1}}>{profile.name}</span>
-          <button onClick={onLogout} title="Changer de profil" style={{padding:4,background:"none",border:"none",cursor:"pointer",color:"#64748b",display:"flex"}}><I n="User" size={14}/></button>
+          <SyncDot syncing={syncing}/>
+          <button onClick={onLogout} title="Changer de profil" style={{padding:4,background:"none",border:"none",cursor:"pointer",color:"#64748b",display:"flex",marginLeft:4}}><I n="User" size={14}/></button>
         </div>
         <nav style={{flex:1,padding:8,overflowY:"auto"}}>
           {NAV.map(({id,label,icon})=>(
@@ -769,10 +663,7 @@ function MainApp({profile,onLogout}){
             </button>
           ))}
         </nav>
-        <div style={{padding:12,borderTop:"1px solid #1e293b",display:"flex",flexDirection:"column",gap:8}}>
-          <button onClick={()=>{setActiveJob(null);setModal("share");}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"9px",borderRadius:9,border:"1px solid #1e293b",background:"transparent",color:"#64748b",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>
-            <I n="Share" size={13}/> Partager
-          </button>
+        <div style={{padding:12,borderTop:"1px solid #1e293b"}}>
           <button onClick={()=>{setActiveJob(null);setModal("add");}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"9px",borderRadius:9,border:"none",background:"#6366f1",color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(99,102,241,0.4)"}}>
             <I n="Plus" size={13}/> Nouvelle candidature
           </button>
@@ -781,11 +672,11 @@ function MainApp({profile,onLogout}){
 
       {/* Main */}
       <div className="mc" style={{minHeight:"100vh"}}>
-        {/* Header */}
         <div style={{position:"sticky",top:0,zIndex:30,background:"rgba(255,255,255,0.93)",backdropFilter:"blur(12px)",borderBottom:"1px solid #f1f5f9",padding:"9px 16px",display:"flex",alignItems:"center",gap:10}}>
           <div className="mob" style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
             <div style={{width:26,height:26,borderRadius:8,background:"#6366f1",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff"}}><I n="Brief" size={12}/></div>
             <div style={{width:24,height:24,borderRadius:999,background:profile.bg,border:`2px solid ${profile.color}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:profile.color}}>{profile.avatar}</div>
+            <SyncDot syncing={syncing}/>
           </div>
           <div style={{flex:1,position:"relative"}}>
             <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#94a3b8",display:"flex",pointerEvents:"none"}}><I n="Search" size={13}/></span>
@@ -796,13 +687,8 @@ function MainApp({profile,onLogout}){
           <span className="dsk-bl" style={{fontSize:11,color:"#94a3b8",fontWeight:500,whiteSpace:"nowrap"}}>{filtered.length} candidature{filtered.length!==1?"s":""}</span>
           <button onClick={()=>{setActiveJob(null);setModal("add");}} className="mob" style={{width:34,height:34,borderRadius:9,border:"none",background:"#6366f1",color:"#fff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><I n="Plus" size={15}/></button>
         </div>
-
-        {/* Content */}
         <div style={{padding:"16px 16px 100px"}}>
-          <div style={{fontWeight:700,color:"#0f172a",fontSize:16,marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
-            {NAV.find(n=>n.id===view)?.label}
-            {search&&<span style={{fontSize:12,fontWeight:400,color:"#94a3b8"}}>· "{search}"</span>}
-          </div>
+          <div style={{fontWeight:700,color:"#0f172a",fontSize:16,marginBottom:12}}>{NAV.find(n=>n.id===view)?.label}{search&&<span style={{fontSize:12,fontWeight:400,color:"#94a3b8",marginLeft:8}}>· "{search}"</span>}</div>
           {view==="kanban"   &&<KanbanView   jobs={filtered} onView={openView} onStatusChange={chgSt}/>}
           {view==="list"     &&<ListView     jobs={filtered} onView={openView} onStatusChange={chgSt}/>}
           {view==="timeline" &&<TimelineView jobs={jobs}/>}
@@ -820,7 +706,6 @@ function MainApp({profile,onLogout}){
         ))}
       </div>
 
-      {/* Modals */}
       {(modal==="add"||modal==="edit")&&(
         <Modal title={modal==="add"?"Nouvelle candidature":"Modifier"} onClose={()=>{setModal(null);setActiveJob(null);}}>
           <JobForm initial={modal==="edit"?activeJob:EMPTY_JOB} onSave={saveJob} onCancel={()=>{setModal(null);setActiveJob(null);}} globalTags={tags} onNewTag={addTag}/>
@@ -828,21 +713,28 @@ function MainApp({profile,onLogout}){
       )}
       {modal==="view"&&activeJob&&(
         <Modal title={activeJob.company||"Candidature"} onClose={()=>{setModal(null);setActiveJob(null);}}>
-          <JobDetail job={activeJob} onEdit={()=>openEdit(activeJob)} onClose={()=>{setModal(null);setActiveJob(null);}}/>
-        </Modal>
-      )}
-      {modal==="share"&&(
-        <Modal title="Partager l'application" onClose={()=>setModal(null)}>
-          <ShareModal profileName={profile.name} onClose={()=>setModal(null)}/>
+          <JobDetail job={jobs.find(j=>j.id===activeJob.id)||activeJob} onEdit={()=>openEdit(activeJob)} onClose={()=>{setModal(null);setActiveJob(null);}}/>
         </Modal>
       )}
     </div>
   );
 }
 
-// ── Root ──
 function Root(){
   const [profile,setProfile]=useState(null);
+  const [fbReady,setFbReady]=useState(!!window.__fbReady);
+  useEffect(()=>{
+    if(window.__fbReady){setFbReady(true);return;}
+    const h=()=>setFbReady(true);
+    window.addEventListener("firebase-ready",h);
+    return()=>window.removeEventListener("firebase-ready",h);
+  },[]);
+  if(!fbReady)return(
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,background:"#f8fafc"}}>
+      <div style={{width:36,height:36,borderRadius:999,border:"3px solid #e2e8f0",borderTopColor:"#6366f1"}} className="spin"/>
+      <div style={{fontSize:13,color:"#64748b"}}>Connexion à Firebase…</div>
+    </div>
+  );
   if(!profile)return<ProfileScreen onSelect={setProfile}/>;
   return<MainApp profile={profile} onLogout={()=>setProfile(null)}/>;
 }
